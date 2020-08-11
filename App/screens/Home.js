@@ -1,23 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useContext } from "react";
 import {
   View,
   StyleSheet,
   StatusBar,
   Dimensions,
   Image,
-  ScrollView,
   Text,
+  ScrollView,
   TouchableOpacity,
-  // Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import { format } from "date-fns";
+import { Entypo } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import colors from "../constants/colors";
 import { ConversionInput } from "../components/conversionInput";
 import { Button } from "../components/Button";
 import { KeyboardSpacer } from "../components/KeyboardSpacer";
-import { Entypo } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors } from "react-native/Libraries/NewAppScreen";
+import { ConversionContext } from "../util/ConversionContext";
 
 const screen = Dimensions.get("window");
 
@@ -25,7 +26,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.blue,
-    // justifyContent: "center",
   },
   content: {
     paddingTop: screen.height * 0.1,
@@ -48,13 +48,16 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: "bold",
     fontSize: 30,
-    marginVertical: 20,
     textAlign: "center",
+    marginBottom: 20,
   },
   text: {
+    fontSize: 14,
     color: colors.white,
-    fontSize: 13,
     textAlign: "center",
+  },
+  inputContainer: {
+    marginBottom: 10,
   },
   header: {
     alignItems: "flex-end",
@@ -63,34 +66,29 @@ const styles = StyleSheet.create({
 });
 
 export default ({ navigation }) => {
-  const baseCurrency = "USD";
-  const quoteCurrency = "GBP";
-  const conversionRate = 0.8345;
-  const date = new Date();
+  const {
+    baseCurrency,
+    quoteCurrency,
+    swapCurrencies,
+    date,
+    rates,
+    isLoading,
+  } = useContext(ConversionContext);
+  const [value, setValue] = useState("100");
   const [scrollEnabled, setScrollEnabled] = useState(false);
 
-  // useEffect(() => {
-  //   const showListener = Keyboard.addListener("keyboardDidShow", () => {
-  //     setScrollEnabled(true);
-  //   });
-  //   const hideListener = Keyboard.addListener("keyboardDidHide", () => {
-  //     setScrollEnabled(false);
-  //   });
-  //   return () => {
-  //     showListener.remove();
-  //     hideListener.remove();
-  //   };
-  // }, []);
+  const conversionRate = rates[quoteCurrency];
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.blue} />
       <ScrollView scrollEnabled={scrollEnabled}>
-        <StatusBar barStyle="light-content" backgroundColor={colors.blue} />
         <SafeAreaView style={styles.header}>
           <TouchableOpacity onPress={() => navigation.push("Options")}>
-            <Entypo name="cog" size={32} color={Colors.white} />
+            <Entypo name="cog" size={32} color={colors.white} />
           </TouchableOpacity>
         </SafeAreaView>
+
         <View style={styles.content}>
           <View style={styles.logoContainer}>
             <Image
@@ -105,42 +103,50 @@ export default ({ navigation }) => {
             />
           </View>
           <Text style={styles.textHeader}>Currency Converter</Text>
-          <ConversionInput
-            text={baseCurrency}
-            value="123"
-            onButtonPress={() =>
-              navigation.push("CurrencyList", {
-                title: "Base Currency",
-                activeCurrency: baseCurrency,
-              })
-            }
-            keyboardType="numeric"
-            onChangeText={(text) => console.log("text", text)}
-          />
-          <ConversionInput
-            text={quoteCurrency}
-            value="123"
-            editable={false}
-            onButtonPress={() =>
-              navigation.push("CurrencyList", {
-                title: "Quote Currency",
-                activeCurrency: quoteCurrency,
-              })
-            }
-          />
-          <Text style={styles.text}>
-            {`1 ${baseCurrency} = ${conversionRate}${quoteCurrency} as of ${format(
-              new Date(date),
-              "MMM do, yyyy"
-            )}`}
-          </Text>
-          <Button text="Reverse currencies" onPress={() => alert("todo")} />
-          {/* <View style={{ height: screen.height }} /> */}
-          <KeyboardSpacer
-            onToggle={(KeyboardIsVisible) =>
-              setScrollEnabled(KeyboardIsVisible)
-            }
-          />
+          {isLoading ? (
+            <ActivityIndicator color={colors.white} size="large" />
+          ) : (
+            <>
+              <View style={styles.inputContainer}>
+                <ConversionInput
+                  text={baseCurrency}
+                  value={value}
+                  onButtonPress={() =>
+                    navigation.push("CurrencyList", {
+                      title: "Base Currency",
+                      isBaseCurrency: true,
+                    })
+                  }
+                  keyboardType="numeric"
+                  onChangeText={(text) => setValue(text)}
+                />
+                <ConversionInput
+                  text={quoteCurrency}
+                  value={
+                    value &&
+                    `${(parseFloat(value) * conversionRate).toFixed(2)}`
+                  }
+                  editable={false}
+                  onButtonPress={() =>
+                    navigation.push("CurrencyList", {
+                      title: "Quote Currency",
+                      isBaseCurrency: false,
+                    })
+                  }
+                />
+              </View>
+              <Text style={styles.text}>
+                {`1 ${baseCurrency} = ${conversionRate} ${quoteCurrency} as of ${
+                  date && format(new Date(date), "MMM do, yyyy")
+                }`}
+              </Text>
+              <Button
+                text="Reverse Currencies"
+                onPress={() => swapCurrencies()}
+              />
+            </>
+          )}
+          <KeyboardSpacer onToggle={(visible) => setScrollEnabled(visible)} />
         </View>
       </ScrollView>
     </View>
